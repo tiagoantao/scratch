@@ -15,9 +15,22 @@ fn dec(x: u32) i64 {
     return val - 1;
 }
 
+pub fn map_no_alloc(comptime X: type, comptime Y: type, fun: fn (X) Y, in: []const X, out: []Y) void {
+    for (in, 0..) |elem, i| {
+        out[i] = fun(elem);
+    }
+}
+
 test "map basic example" {
-    //const entry: []i32 = [_]i32{ 1, 2, 3, 4, 5 };
     const entry = [_]u32{ 1, 2, 3, 4 };
     const result = try map(u32, i64, testing.allocator, dec, &entry);
+    try testing.expect(result[3] == 3);
     testing.allocator.free(result);
+}
+
+test "map_no_alloc basic example" {
+    const entry = [_]u32{ 1, 2, 3, 4 };
+    var result: [4]i64 = undefined;
+    map_no_alloc(u32, i64, dec, &entry, &result);
+    try testing.expect(result[3] == 3);
 }
