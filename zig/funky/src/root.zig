@@ -24,21 +24,22 @@ pub fn filter(comptime X: type, allocator: Allocator, fun: fn (X) bool, in: []co
     var go_forward: []bool = try allocator.alloc(bool, in.len);
     var num_forward: u64 = 0;
     for (in, 0..) |elem, i| {
-        const filter_out = fun(elem);
-        if (!filter_out) {
+        const keep = fun(elem);
+        if (keep) {
             num_forward += 1;
         }
-        go_forward[i] = !filter_out;
+        go_forward[i] = keep;
     }
-    try allocator.free(go_forward);
+    //Allocator free
     const result: []X = try allocator.alloc(X, num_forward);
-    var curr_pos = 0;
+    var curr_pos: usize = 0;
     for (go_forward, 0..) |go, i| {
         if (go) {
             result[curr_pos] = in[i];
             curr_pos += 1;
         }
     }
+    allocator.free(go_forward);
     return result;
 }
 
@@ -50,6 +51,14 @@ pub fn foldl(comptime X: type, fun: fn (X, X) X, in: []const X, initial: X) X {
     return accumulator;
 }
 
+pub fn foldr(comptime X: type, fun: fn (X, X) X, in: []const X, initial: X) X {
+    var accumulator: X = initial;
+    for (0..in.len) |i| {
+        accumulator = fun(in[in.len - (i + 1)], accumulator);
+    }
+    return accumulator;
+}
+
 test "map basic example" {
     const entry = [_]i32{ 1, 2, 3, 4 };
     const result = try map(i32, i32, testing.allocator, op.dec_i32, &entry);
@@ -57,16 +66,32 @@ test "map basic example" {
     testing.allocator.free(result);
 }
 
+//Do a test with a map type change
+
 test "map_no_alloc basic example" {
-    const test_dec = struct {
-        fn test_dec(x: u32) i64 {
-            return @as(i64, @intCast(x)) - 1;
-        }
-    }.test_dec;
-    const entry = [_]u32{ 1, 2, 3, 4 };
-    var result: [4]i64 = undefined;
-    map_no_alloc(u32, i64, test_dec, &entry, &result);
+    const entry = [_]i32{ 1, 2, 3, 4 };
+    var result: [4]i32 = undefined;
+    map_no_alloc(i32, i32, op.dec_i32, &entry, &result);
     try testing.expect(result[3] == 3);
 }
 
-// Create a test case that shows that foldl different from foldr
+test "filter example" {
+    const entry = [_]u32{ 1, 2, 3, 4 };
+    const result = try filter(u32, testing.allocator, op.gt_val(u32, 1), &entry);
+    try testing.expect(result.len == 3);
+    try testing.expect(result[0] == 2);
+    try testing.expect(result[2] == 4);
+    testing.allocator.free(result);
+}
+
+test "left fold - foldl" {
+    const entry = [_]i32{ 1, 2, 3, 4 };
+    const result = foldl(i32, op.sub_i32, &entry, 0);
+    try testing.expect(result == -10);
+}
+
+test "right fold - foldr" {
+    const entry = [_]i32{ 1, 2, 3, 4 };
+    const result = foldr(i32, op.sub_i32, &entry, 0);
+    try testing.expect(result == -2);
+}
