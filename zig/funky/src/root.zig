@@ -22,6 +22,7 @@ pub fn map_no_alloc(comptime X: type, comptime Y: type, fun: fn (X) Y, in: []con
 
 pub fn filter(comptime X: type, allocator: Allocator, fun: fn (X) bool, in: []const X) ![]X {
     var go_forward: []bool = try allocator.alloc(bool, in.len);
+    defer allocator.free(go_forward);
     var num_forward: u64 = 0;
     for (in, 0..) |elem, i| {
         const keep = fun(elem);
@@ -30,7 +31,6 @@ pub fn filter(comptime X: type, allocator: Allocator, fun: fn (X) bool, in: []co
         }
         go_forward[i] = keep;
     }
-    //Allocator free
     const result: []X = try allocator.alloc(X, num_forward);
     var curr_pos: usize = 0;
     for (go_forward, 0..) |go, i| {
@@ -39,7 +39,6 @@ pub fn filter(comptime X: type, allocator: Allocator, fun: fn (X) bool, in: []co
             curr_pos += 1;
         }
     }
-    allocator.free(go_forward);
     return result;
 }
 
@@ -59,11 +58,27 @@ pub fn foldr(comptime X: type, fun: fn (X, X) X, in: []const X, initial: X) X {
     return accumulator;
 }
 
+pub fn chain(comptime T: type, allocator: Allocator, ins: []const []const T) ![]T {
+    var total_len: usize = 0;
+    for (ins) |in| {
+        total_len += in.len;
+    }
+    const result: []T = try allocator.alloc(T, total_len);
+    var pos: usize = 0;
+    for (ins) |in| {
+        for (in) |elem| {
+            result[pos] = elem;
+            pos += 1;
+        }
+    }
+    return result;
+}
+
 test "map basic example" {
     const entry = [_]i32{ 1, 2, 3, 4 };
     const result = try map(i32, i32, testing.allocator, op.dec_i32, &entry);
+    defer testing.allocator.free(result);
     try testing.expect(result[3] == 3);
-    testing.allocator.free(result);
 }
 
 //Do a test with a map type change
@@ -78,10 +93,10 @@ test "map_no_alloc basic example" {
 test "filter example" {
     const entry = [_]u32{ 1, 2, 3, 4 };
     const result = try filter(u32, testing.allocator, op.gt_val(u32, 1), &entry);
+    defer testing.allocator.free(result);
     try testing.expect(result.len == 3);
     try testing.expect(result[0] == 2);
     try testing.expect(result[2] == 4);
-    testing.allocator.free(result);
 }
 
 test "left fold - foldl" {
@@ -94,4 +109,15 @@ test "right fold - foldr" {
     const entry = [_]i32{ 1, 2, 3, 4 };
     const result = foldr(i32, op.sub_i32, &entry, 0);
     try testing.expect(result == -2);
+}
+
+test "chain" {
+    const entry1 = [_]u32{ 1, 2, 3, 4 };
+    const entry2 = [_]u32{ 5, 6, 7 };
+    const entry: []const []const u32 = &.{ &entry1, &entry2 };
+    const result = try chain(u32, testing.allocator, entry);
+    defer testing.allocator.free(result);
+    try testing.expect(result.len == 7);
+    try testing.expect(result[0] == 1);
+    try testing.expect(result[6] == 7);
 }
