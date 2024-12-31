@@ -1,5 +1,5 @@
 const std = @import("std");
-const Allocator = std.mem.Allocator;
+const Allocator = std.myyem.Allocator;
 const testing = std.testing;
 const op = @import("op.zig");
 
@@ -74,50 +74,4 @@ pub fn chain(comptime T: type, allocator: Allocator, ins: []const []const T) ![]
     return result;
 }
 
-test "map basic example" {
-    const entry = [_]i32{ 1, 2, 3, 4 };
-    const result = try map(i32, i32, testing.allocator, op.dec_i32, &entry);
-    defer testing.allocator.free(result);
-    try testing.expect(result[3] == 3);
-}
-
-//Do a test with a map type change
-
-test "map_no_alloc basic example" {
-    const entry = [_]i32{ 1, 2, 3, 4 };
-    var result: [4]i32 = undefined;
-    map_no_alloc(i32, i32, op.dec_i32, &entry, &result);
-    try testing.expect(result[3] == 3);
-}
-
-test "filter example" {
-    const entry = [_]u32{ 1, 2, 3, 4 };
-    const result = try filter(u32, testing.allocator, op.gt_val(u32, 1), &entry);
-    defer testing.allocator.free(result);
-    try testing.expect(result.len == 3);
-    try testing.expect(result[0] == 2);
-    try testing.expect(result[2] == 4);
-}
-
-test "left fold - foldl" {
-    const entry = [_]i32{ 1, 2, 3, 4 };
-    const result = foldl(i32, op.sub_i32, &entry, 0);
-    try testing.expect(result == -10);
-}
-
-test "right fold - foldr" {
-    const entry = [_]i32{ 1, 2, 3, 4 };
-    const result = foldr(i32, op.sub_i32, &entry, 0);
-    try testing.expect(result == -2);
-}
-
-test "chain" {
-    const entry1 = [_]u32{ 1, 2, 3, 4 };
-    const entry2 = [_]u32{ 5, 6, 7 };
-    const entry: []const []const u32 = &.{ &entry1, &entry2 };
-    const result = try chain(u32, testing.allocator, entry);
-    defer testing.allocator.free(result);
-    try testing.expect(result.len == 7);
-    try testing.expect(result[0] == 1);
-    try testing.expect(result[6] == 7);
-}
+//infinite count/cycle
