@@ -33,7 +33,7 @@ pub fn gt(comptime T: type, x1: T, x2: T) bool {
 pub fn gt_val(comptime T: type, val: T) fn (T) bool {
     return struct {
         fn inner(x: T) bool {
-            return x > val;
+            return gt(T, x, val);
         }
     }.inner;
 }
